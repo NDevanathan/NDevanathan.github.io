@@ -12,14 +12,15 @@ permalink: /
 
 * about
   * 4th year bachelor's student in [math](https://mathematics.stanford.edu/) and 2nd year master's student in [electrical engineering](https://ee.stanford.edu/) at Stanford University 
-  * Will graduate with both degrees in June 2024
+  * Graduating with both degrees in June 2024
   * Researching convex optimization in [Stephen Boyd](https://web.stanford.edu/~boyd/)'s research group at Stanford
-  * Interning at BlackRock AI labs
+  * Recently interned at BlackRock AI labs
 * research
   * Currently focusing on optimization algorithms
   * Hope to research control and statistical learning in the future
 * teaching
-  * teaching assistant for [EE 364A](https://web.stanford.edu/class/ee364a/) (CME 364A) - Convex Optimization I, Winter 2022-23, Stanford Univeristy
-  * teaching assistant for [EE 263](https://ee263.stanford.edu/) (CME 263) - Linear Dynamic Systems, Fall 2022-23, Stanford Univeristy
+  * teaching assistant for [EE 104](https://ee104.stanford.edu/) (CME 107) - Introduction to Machine Learning, Spring 2024, Stanford Univeristy
+  * teaching assistant for [EE 364A](https://web.stanford.edu/class/ee364a/) (CME 364A) - Convex Optimization I, Winter 2023, Stanford Univeristy
+  * teaching assistant for [EE 263](https://ee263.stanford.edu/) (CME 263) - Introduction to Linear Dynamical Systems, Fall 2022, Stanford Univeristy
 * contact
-  * ndev (at) stanford (dot) edu
+  * nikhil (dot) devanathan (at) gmail (dot) com
