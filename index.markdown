@@ -11,9 +11,8 @@ permalink: /
 [resume](/assets/resume_ndev.pdf)
 
 * about
-  * 4th year bachelor's student in [math](https://mathematics.stanford.edu/) and 2nd year master's student in [electrical engineering](https://ee.stanford.edu/) at Stanford University 
-  * Graduating with both degrees in June 2024
-  * Researching convex optimization in [Stephen Boyd](https://web.stanford.edu/~boyd/)'s research group at Stanford
+  * Recently graduated with BS in Math and MS in EE from Stanford University
+  * Researched convex optimization in [Stephen Boyd](https://web.stanford.edu/~boyd/)'s research group
   * Recently interned at BlackRock AI labs
 * research
   * Currently focusing on optimization algorithms
