@@ -13,6 +13,7 @@ permalink: /papers/
 * 2024
   * Efficient Shapley Performance Attribution for Least-Squares Regression
     * Logan Bell, Nikhil Devanathan, and Stephen Boyd
+    * Published: [doi: 10.1007/s11222-024-10459-9](https://doi.org/10.1007/s11222-024-10459-9)
     * Preprint: [doi: 10.48550/arXiv.2310.19245](https://doi.org/10.48550/arXiv.2310.19245)
   * Polyak Minorant Method for Convex Optimization
     * Nikhil Devanathan and Stephen Boyd
