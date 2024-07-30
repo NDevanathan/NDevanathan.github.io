@@ -11,6 +11,7 @@ permalink: /
 [resume](/assets/resume_ndev.pdf)
 
 * about
+  * Researching AI and developing protoype solutions at the BlackRock AI Labs.
   * Recently graduated with BS in Math and MS in EE from Stanford University
   * Researched convex optimization in [Stephen Boyd](https://web.stanford.edu/~boyd/)'s research group
   * Recently interned at BlackRock AI labs
