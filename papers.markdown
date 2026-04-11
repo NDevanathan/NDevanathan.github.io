@@ -18,6 +18,7 @@ permalink: /papers/
   * Single-Asset Adaptive Leveraged Volatility Control
     * Nikhil Devanathan, Dylan Rueter, Stephen Boyd, Emmanuel Candès, Trevor Hastie, Mykel J. Kochenderfer, Arpit Apoorv, David Soronow, Igor Zamkovsky
     * arXiv: [2603.01298](https://arxiv.org/abs/2603.01298)
+    * SSRN: [DOI: 10.2139/ssrn.6321918](https://dx.doi.org/10.2139/ssrn.6321918)
 * 2024
   * Efficient Shapley Performance Attribution for Least-Squares Regression
     * Logan Bell, Nikhil Devanathan, and Stephen Boyd
