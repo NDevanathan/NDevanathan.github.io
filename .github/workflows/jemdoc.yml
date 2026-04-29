@@ -1,0 +1,64 @@
+name: Deploy docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Branch-based Pages deploy: build the site, push the result to `gh-pages`,
+# let GitHub Pages serve from that branch. Avoids the `github-pages`
+# environment (and its protection rules) entirely.
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install KaTeX (pinned in package.json)
+        run: npm install
+
+      - name: Build docs
+        run: make docs
+
+      - name: Stage deploy directory
+        # The rendered HTML lives in html/, but it links to a few assets
+        # that live elsewhere in the repo: the default-theme stylesheet
+        # (jemdoc-cvx.css) and its self-hosted woff2 fonts, the legacy theme
+        # files (jemdoc.css + theme variants) for users who load them, the
+        # .jemdoc sources (because `showsource` pages link back to them), and
+        # dist/jemdoc.vim (linked from stuff.jemdoc).
+        run: |
+          mkdir -p _site
+          cp -r html/ _site/
+          cp jemdoc-cvx.css _site/
+          mkdir -p _site/fonts
+          cp css/fonts/*.woff2 _site/fonts/
+          cp *.jemdoc _site/
+          cp -r assets/ _site/assets
+
+      - name: Publish to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          publish_branch: gh-pages
+          # Each deploy replaces the previous gh-pages tree (no growing history).
+          force_orphan: true
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          commit_message: "Deploy docs: ${{ github.sha }}"

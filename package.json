@@ -1,0 +1,9 @@
+{
+  "name": "jemdoc-cvx-katex",
+  "version": "1.0.0",
+  "description": "Pinned KaTeX dependency for jemdoc-cvx server-side equation rendering. Run 'npm install' from this directory to install katex into node_modules/.bin.",
+  "private": true,
+  "dependencies": {
+    "katex": "0.16.11"
+  }
+}
