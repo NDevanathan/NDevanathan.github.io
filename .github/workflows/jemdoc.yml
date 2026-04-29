@@ -44,7 +44,7 @@ jobs:
         # dist/jemdoc.vim (linked from stuff.jemdoc).
         run: |
           mkdir -p _site
-          cp -r build/ _site/
+          cp -r build/. _site/
           cp jemdoc-cvx.css _site/
           mkdir -p _site/fonts
           cp build/fonts/*.woff2 _site/fonts/
