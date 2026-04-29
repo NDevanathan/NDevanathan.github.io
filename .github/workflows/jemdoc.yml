@@ -32,8 +32,8 @@ jobs:
       - name: Install KaTeX (pinned in package.json)
         run: npm install
 
-      - name: Build docs
-        run: make docs
+      - name: Build site
+        run: make all
 
       - name: Stage deploy directory
         # The rendered HTML lives in html/, but it links to a few assets
@@ -44,10 +44,10 @@ jobs:
         # dist/jemdoc.vim (linked from stuff.jemdoc).
         run: |
           mkdir -p _site
-          cp -r html/ _site/
+          cp -r build/ _site/
           cp jemdoc-cvx.css _site/
           mkdir -p _site/fonts
-          cp css/fonts/*.woff2 _site/fonts/
+          cp build/fonts/*.woff2 _site/fonts/
           cp *.jemdoc _site/
           cp -r assets/ _site/assets
 
