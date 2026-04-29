@@ -1,6 +1,6 @@
 # jemdoc: menu{MENU}{papers.html}, showsource
-
 = Papers
+
 == 2026
   - A Distributed Method for Cooperative Transaction Cost Mitigation
     -- Nikhil Devanathan, Logan Bell, Dylan Rueter, Stephen Boyd
