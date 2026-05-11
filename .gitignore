@@ -4,3 +4,6 @@ _site
 .jekyll-metadata
 vendor
 build/
+node_modules
+package-lock.json
+katexcache
