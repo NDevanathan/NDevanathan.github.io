@@ -1,0 +1,7 @@
+# jemdoc: menu{MENU}{blog.html}, showsource
+= Blog
+
+Notes as I write them.
+
+== 2026
+- [blog/rr_lr.html Reduced rank linear regression]
