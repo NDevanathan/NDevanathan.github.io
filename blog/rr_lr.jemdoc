@@ -3,10 +3,14 @@
 
 5\/27\/2024
 
-Recently I have been looking to solve linear regression problems with multiple features and multiple targets (i.e. given $X\in \mathbb{R}^{T\times n}$ and $Y\in \mathbb{R}^{T\times m}$, find $\Theta\in \mathbb{R}^{n\times m}$ such that $Y\approx XB$). In particular, in the cases I am interested in $X$ is approximately rank $k$ ($X$ is very well approximated by a rank $k$ matrix) and $k\ll n,m$ due to extreme feature colinearity.
+## Context
 
+## Derivation
+
+## Discussion
 I have been using reduced-rank linear regression recently for some projects, and I initially had some difficulty determining if I was implementing it correctly. For reference, I originally read section 3.7, Multiple Outcome Shrinkage and Selection, of [https://hastie.su.domains/ElemStatLearn/ Elements of Statistical Learning]. This section discusses reduced-rank linear regression along with a related technique, the canonical correlation analysis (CCA).
 
 Unfortunately, this section was not terribly clear, and so I worked through the solution as a fun exercise.
 
+## Similar problems
 Extremal trace problem. Orthogonal percrustes.
