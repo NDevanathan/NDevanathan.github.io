@@ -3,14 +3,24 @@
 
 5\/27\/2024
 
-## Context
+== Context
+Recently, I have been interested in reduced-rank linear regression. I first read about the topic in section 3.7 (Multiple Outcome Shrinkage and Selection) of [https://hastie.su.domains/ElemStatLearn/ Elements of Statistical Learning]. Unfortunately, I found the treatment of reduced-rank linear regression in this section to be a bit unclear ([https://stats.stackexchange.com/a/213063 this is not an opinion that only I have]), so I decided to dig into the topic as a fun exercise.
 
-## Derivation
+== Derivation
+Suppose we have $X\in \mathbb{R}^{n\times p}$, $Y\in \mathbb{R}^{n\times q}$, and positive integer rank $r$ (typically $r \lt n, p, q$). We want to find a matrix $\Theta$ that solves the problem
 
-## Discussion
-I have been using reduced-rank linear regression recently for some projects, and I initially had some difficulty determining if I was implementing it correctly. For reference, I originally read section 3.7, Multiple Outcome Shrinkage and Selection, of [https://hastie.su.domains/ElemStatLearn/ Elements of Statistical Learning]. This section discusses reduced-rank linear regression along with a related technique, the canonical correlation analysis (CCA).
+\(
+\begin{align*}
+\min_{\Theta}. \quad & \|Y - X\Theta\|_F^2 \\
+\text{s.t.} \quad & \text{rank}(\Theta) \leq r.
+\end{align*}
+\)
 
-Unfortunately, this section was not terribly clear, and so I worked through the solution as a fun exercise.
+This problem looks quite benign, but the rank constraint is non-convex, and so it's not immediately clear how to solve it. With some simple manipulations, though, we can show a non-heuristic, two-step method to produce an exact (up to numerical precision) solution.
 
-## Similar problems
+
+== Discussion
+
+
+== Similar problems
 Extremal trace problem. Orthogonal percrustes.
