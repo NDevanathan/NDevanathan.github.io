@@ -68,7 +68,7 @@ M^\star & = U_{:r}\Sigma_{:r} V_{:r}^T \\
 \end{align*}
 \)
 
-Since $X\hat{\Theta} V_{:r} V_{:r}^T$ is a solution to the relaxation [\#eq-relax_rr (3)], it follows that $\hat{\Theta} V_{:r} V_{:r}^T$ is a solution to the original problem [\#eq-rr_lss (2)]. $\square$
+Since $X\hat{\Theta} V_{:r} V_{:r}^T$ is a solution to the relaxation [\#eq-relax_rr (3)], it follows that $\hat{\Theta} V_{:r} V_{:r}^T$ is a solution to the original problem [\#eq-rr_lss (2)].
 
 The core intuition behind this problem is realizing the following: the least squares residual is always orthogonal to the column space of $X$, and the task of selecting the best rank-$r$ coefficient matrix $\Theta$ involves choosing the best subspace /within/ the column space of $X$. Since the least squares residual and the reduced-rank residual are orthogonal, we can split the problem into two steps: first find the least squares solution, and then find the best rank-$r$ approximation to the fitted values $X\hat{\Theta}$.
 
