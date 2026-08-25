@@ -1,0 +1,8 @@
+# jemdoc: menu{MENU}{}{../}
+= Regularized reduced rank linear regression
+
+8\/25\/2026
+
+After I learned how to perform reduced rank least squares, I was left dissatisfied with the solution. As I mention near the end of [notes/rr_lr.html my note] on the topic, reduced rank regression does little to eliminate the risk of fitting to noise, and additionally it risks pulling out exclusively noise. While the method seems superficially like regularization, it lacks this effect in practice (to the best of my knowledge).
+
+That said, apart from the issue of regularization, I can see
