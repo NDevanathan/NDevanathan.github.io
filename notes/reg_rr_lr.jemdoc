@@ -3,6 +3,42 @@
 
 8\/25\/2026
 
-After I learned how to perform reduced rank least squares, I was left dissatisfied with the solution. As I mention near the end of [notes/rr_lr.html my note] on the topic, reduced rank regression does little to eliminate the risk of fitting to noise, and additionally it risks pulling out exclusively noise. While the method seems superficially like regularization, it lacks this effect in practice (to the best of my knowledge).
+After deriving the solution to reduced-rank least squares, I was left dissatisfied with it. As I mention at the end of [rr_lr.html my note] on the topic, reduced-rank regression doesn't really reduce the risk of fitting to noise, and in the worst case it extracts nothing but noise. The rank constraint superficially resembles regularization, but (to the best of my knowledge) it doesn't act as a regularizer in practice.
 
-That said, apart from the issue of regularization, I can see
+Regularization aside, there can still be value in a reduced-rank fit. Suppose we have $p$ features, $q$ correlated targets, and $n \lt pq$ data points. In this regime, it seems desirable both to pool information across the $q$ targets (joint regression) and to summarize the relationship between the features and the targets in a parameter-efficient way (low-rank fit). From here, my next question was whether reduced-rank regression can be combined with ridge regression, to achieve both insensitivity to noise and a parameter-efficient fit.
+
+== A closed(-ish) form for reduced-rank ridge
+Once again, suppose we have data $X\in \mathbb{R}^{n\times p}$, targets $Y\in \mathbb{R}^{n\times q}$, positive integer rank $r$, and a regularization parameter $\lambda\geq 0$. We want to find a matrix $\Theta \in \mathbb{R}^{p\times q}$ that solves the problem
+
+{{<span id="eq-reg_rr_lr"></span>}}
+\(
+\begin{align}
+\min_{\Theta}. \quad & \|Y - X\Theta\|_F^2 +\lambda\|\Theta\|_F^2 \\
+\text{s.t.} \quad & \text{rank}(\Theta) \leq r.\nonumber
+\end{align}
+\)
+
+Knowing the solution to the unregularized problem (derived [rr_lr.html here]), a natural first attempt at [\#eq-reg_rr_lr (1)] is to reuse the same recipe: let $\hat{\Theta}$ be the solution to the unconstrained ridge problem, take the thin SVD $X\hat{\Theta}=U\Sigma V^T$, and return $\hat{\Theta}V_{:r}V_{:r}^T$, where $V_{:r}$ is the matrix of the first $r$ columns of $V$. This is /not/ a solution to [\#eq-reg_rr_lr (1)], but it turns out to be close.
+
+To find the real solution, first define
+
+\(
+\tilde{X}:=\begin{bmatrix}X \\ \sqrt{\lambda} I\end{bmatrix}, \quad \tilde{Y}:=\begin{bmatrix}Y \\ \mathbf{0}\end{bmatrix},
+\)
+
+where $I$ is the $p\times p$ identity matrix and $\mathbf{0}$ is the $p\times q$ matrix of zeros. We can now rewrite [\#eq-reg_rr_lr (1)] as
+
+{{<span id="eq-tall_rr_lr"></span>}}
+\(
+\begin{align}
+\min_{\Theta}. \quad & \left\|\tilde{Y} - \tilde{X}\Theta\right\|_F^2 \\
+\text{s.t.} \quad & \text{rank}(\Theta) \leq r.\nonumber
+\end{align}
+\)
+
+Problem [\#eq-tall_rr_lr (2)] carries no ridge term, so it is exactly the reduced-rank least squares problem from before, with $\tilde{X}$ and $\tilde{Y}$ in place of $X$ and $Y$. Conveniently, we already have its unconstrained solution: $\hat{\Theta}$. Applying the two-step solution to the constrained problem, we take the thin SVD $\tilde{X}\hat{\Theta}=\tilde{U}\tilde{\Sigma} \tilde{V}^T$, and then $\hat{\Theta}\tilde{V}_{:r}\tilde{V}_{:r}^T$ solves problem [\#eq-tall_rr_lr (2)], and therefore problem [\#eq-reg_rr_lr (1)].
+
+The naive and the correct solutions differ only in which matrix we decompose: $X\hat{\Theta}$ in the first case and $\tilde{X}\hat{\Theta}$ in the second.
+
+== What does reduced-rank ridge achieve?
+Since $\tilde{X}\hat{\Theta}$ stacks $\sqrt{\lambda}\hat{\Theta}$ beneath $X\hat{\Theta}$, the subspace we keep reflects the size of the coefficients as well as the fitted values.
