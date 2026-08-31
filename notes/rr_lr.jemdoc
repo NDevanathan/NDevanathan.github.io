@@ -1,0 +1,95 @@
+# jemdoc: menu{MENU}{}{../}
+= Reduced rank linear regression
+
+5\/25\/2026; edited 8\/30\/2026
+
+Recently, I have been interested in reduced-rank linear regression, an idea that goes back to [https://projecteuclid.org/journals/annals-of-mathematical-statistics/volume-22/issue-3/Estimating-Linear-Restrictions-on-Regression-Coefficients-for-Multivariate-Normal-Distributions/10.1214/aoms/1177729580.full Anderson (1951)] and [https://www.sciencedirect.com/science/article/pii/0047259X75900421 Izenman (1975)]. My first stop was section 3.7, “Multiple Outcome Shrinkage and Selection,” of [https://hastie.su.domains/ElemStatLearn/ /The Elements of Statistical Learning/]. I found the treatment there a bit unclear, and [https://stats.stackexchange.com/a/213063 others have felt the same way], so I decided to derive the solution by hand as a fun exercise.
+
+== Derivation
+Suppose we have $X\in \mathbb{R}^{n\times p}$, $Y\in \mathbb{R}^{n\times q}$, and positive integer rank $r$ (typically $r \lt n, p, q$). We want to find a matrix $\Theta \in \mathbb{R}^{p\times q}$ that solves the problem
+
+{{<span id="eq-rr_lr"></span>}}
+\(
+\begin{align}
+\min_{\Theta}. \quad & \|Y - X\Theta\|_F^2 \\
+\text{s.t.} \quad & \text{rank}(\Theta) \leq r.\nonumber
+\end{align}
+\)
+
+This problem looks benign, but the rank constraint is non-convex, so it is not immediately clear how to solve it. Some simple manipulations yield a two-step closed-form solution, up to numerical precision.
+
+First, let $\hat{\Theta}$ be the ordinary least squares solution to the unconstrained problem $\min_{\Theta}. \|Y - X\Theta\|_F^2$. The normal equations of the unconstrained problem give us that
+
+\(
+X^T(X\hat{\Theta} - Y) = 0.
+\)
+
+If we define the residual matrix $R = Y - X\hat{\Theta}$, then $X^TR = 0$. It follows that for all $\Theta\in \mathbb{R}^{p\times q}$, we have
+
+\(
+\begin{align*}
+\|Y - X\Theta\|_F^2 & = \|R + X\hat{\Theta} - X\Theta\|_F^2 \\
+& = \|R + X(\hat{\Theta} - \Theta)\|_F^2 \\
+& = \|R\|_F^2 + \|X \hat{\Theta} - X\Theta\|_F^2 + 2\mathrm{tr}\left(R^TX(\hat{\Theta} - \Theta)\right) \\
+& = \|R\|_F^2 + \|X \hat{\Theta} - X\Theta\|_F^2,
+\end{align*}
+\)
+
+where the cross term drops out because $R^TX = \left(X^TR\right)^T = 0$. Since $R$ has no dependence on $\Theta$, the problem [\#eq-rr_lr (1)] is equivalent to
+
+{{<span id="eq-rr_lss"></span>}}
+\(
+\begin{align}
+\min_{\Theta}. \quad & \|X \hat{\Theta} - X\Theta\|_F^2 \\
+\text{s.t.} \quad & \text{rank}(\Theta) \leq r.\nonumber
+\end{align}
+\)
+
+Now, consider the following relaxation of problem [\#eq-rr_lss (2)].
+
+{{<span id="eq-relax_rr"></span>}}
+\(
+\begin{align}
+\min_{M}. \quad & \|X \hat{\Theta} - M\|_F^2 \\
+\text{s.t.} \quad & \text{rank}(M) \leq r,\nonumber
+\end{align}
+\)
+
+where $M\in \mathbb{R}^{n\times q}$ is a new variable. This is a relaxation because any feasible $\Theta$ for problem [\#eq-rr_lss (2)] gives a feasible $M = X\Theta$ for problem [\#eq-relax_rr (3)] with the same objective value, so the optimal value of [\#eq-relax_rr (3)] is at most the optimal value of [\#eq-rr_lss (2)]. We will show that the two optimal values are in fact equal, and that a solution to problem [\#eq-relax_rr (3)] hands us a solution to problem [\#eq-rr_lss (2)].
+
+The solution to [\#eq-relax_rr (3)] is the best rank-$r$ (or less) approximation to $X\hat{\Theta}$ in the Frobenius norm. If we define $X\hat{\Theta} = U\Sigma V^T$ to be the thin SVD of $X\hat{\Theta}$, then by the [https://en.wikipedia.org/wiki/Low-rank_approximation Eckart-Young-Mirsky theorem], this approximation is given by $U_{:r}\Sigma_{:r} V_{:r}^T$, where $U_{:r}$ and $V_{:r}$ are the first $r$ columns of $U$ and $V$, and $\Sigma_{:r}$ is the leading $r\times r$ block of $\Sigma$. Thus, we have that
+
+\(
+\begin{align*}
+M^\star & = U_{:r}\Sigma_{:r} V_{:r}^T \\
+& = U\Sigma V^T V_{:r}V_{:r}^T \\
+& = X\hat{\Theta} V_{:r} V_{:r}^T.
+\end{align*}
+\)
+
+Since $X\hat{\Theta} V_{:r} V_{:r}^T$ is a solution to the relaxation [\#eq-relax_rr (3)], it follows that $\hat{\Theta} V_{:r} V_{:r}^T$ is a solution to the original problem [\#eq-rr_lss (2)].
+
+The core intuition is that the least squares residual is orthogonal to the column space of $X$. Choosing the best rank-$r$ coefficient matrix $\Theta$ amounts to choosing the best subspace /within/ that column space. The two residuals are therefore orthogonal, and the problem splits into two steps: find the least squares solution, then find the best rank-$r$ approximation to the fitted values $X\hat{\Theta}$.
+
+== Afterthoughts
+Suppose $X$ and $Y$ have orthogonal low-rank signal but are corrupted by noise, so they appear full rank. The least squares fit $\hat{\Theta}$ will then be full rank, with $X\hat{\Theta}$ matching or nearly matching $Y$. Reduced-rank regression might seem like a good choice here. But when $X\hat{\Theta}=Y$, the reduced-rank approximation simply picks out the leading left singular vectors of $Y$ from the column space of $X$, which the noise has artificially enlarged. The resulting fit will appear much better than it is. Reduced-rank regression does not act as a regularizer here, and the singular values of $\hat{\Theta}$ can be quite large when the model fits noise.
+
+When $X$ and $Y$ are noisy, it might also be tempting to compute the rank-$r$ approximation of $\hat{\Theta}$ directly. This is even worse. When $\hat{\Theta}$ fits noise in $X$, its corresponding singular values will be large, so the rank-$r$ approximation will select precisely those components.
+
+In contrast, taking a low-rank approximation of $X$ before doing least squares is much more like regularization. Ideally, the approximation removes the noise in $X$, forcing $\Theta$ to fit its signal instead. Reduced-rank regression on $X\hat{\Theta}$ is then more reasonable because it no longer risks selecting noise from $X$.
+
+The more direct fix is to ask for regularization outright. I take that up in [reg_rr_lr.html a follow-up note], where a ridge penalty joins the rank constraint. The two-step method survives, as long as we stack $X$ on top of $\sqrt{\lambda}I$ before taking the SVD.
+
+The derivation also reminded me of the orthogonal Procrustes problem. It asks for the orthogonal matrix $Q$ that best maps a matrix $A$ to a matrix $B$ in the Frobenius norm. The solution is $Q = UV^T$, where $U\Sigma V^T$ is the thin SVD of $BA^T$, as [https://en.wikipedia.org/wiki/Orthogonal_Procrustes_problem described here]. Both problems are least squares with a non-convex constraint, yet both have closed-form solutions based on the SVD.
+
+It is worth appreciating how unusual that is. The obvious vector analogue of problem [\#eq-rr_lr (1)] is least squares subject to $\|\beta\|_0\leq k$, which is best subset selection, and that problem is [https://doi.org/10.1137/S0097539792240406 NP-hard]. The two constraints look alike from a distance, and projecting onto either set is a one-liner. Truncate the SVD in one case, and keep the $k$ largest entries in the other.
+
+The difference appears in the relaxation. Our relaxed solution was
+
+\(
+M^\star = X\hat{\Theta}V_{:r}V_{:r}^T = X\left(\hat{\Theta}V_{:r}V_{:r}^T\right).
+\)
+
+The truncation acts on the right, in target space, while $X$ acts on the left. The two never interfere, so the relaxation is tight. Sparsity has no such structure. The best $k$-sparse approximation to the fitted values $X\hat{\beta}$ is generally not $X\beta$ for any $k$-sparse $\beta$. Thresholding and the design act on the same indices, and the design mixes them. More generally, invertible maps on either side of a matrix preserve its rank. A support set, by contrast, survives only permutations and diagonal scalings. This is why best subset selection is easy when $X^TX$ is diagonal, where the problem separates coordinate by coordinate, and hard as soon as it is not.
+
+Extra structure doesn't necessarily rescue the sparse problem either. Adding a nonnegativity constraint leaves it [https://arxiv.org/abs/2011.11066 NP-hard].

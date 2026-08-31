@@ -1,0 +1,130 @@
+# jemdoc: menu{MENU}{}{../}
+= Regularized reduced rank linear regression
+
+8\/30\/2026
+
+After deriving the solution to reduced-rank least squares, I was left dissatisfied with it. As I mention at the end of [rr_lr.html my previous note], reduced-rank regression does not reduce the risk of fitting noise. In the worst case, it extracts nothing but noise. The rank constraint resembles regularization, but it does not act as a regularizer in practice.
+
+There can still be value in a reduced-rank fit. Suppose we have $p$ features, $q$ correlated targets, and $n \lt pq$ data points. We would like to pool information across the targets through joint regression and summarize their relationship with the features using few parameters. This led me to ask whether reduced-rank regression can be combined with ridge regression to produce a parameter-efficient fit that is less sensitive to noise.
+
+== A nearly closed form for reduced-rank ridge
+Once again, suppose we have data $X\in \mathbb{R}^{n\times p}$, targets $Y\in \mathbb{R}^{n\times q}$, positive integer rank $r$, and a regularization parameter $\lambda\geq 0$. We want to find a matrix $\Theta \in \mathbb{R}^{p\times q}$ that solves the problem
+
+{{<span id="eq-reg_rr_lr"></span>}}
+\(
+\begin{align}
+\min_{\Theta}. \quad & \|Y - X\Theta\|_F^2 +\lambda\|\Theta\|_F^2 \\
+\text{s.t.} \quad & \text{rank}(\Theta) \leq r.\nonumber
+\end{align}
+\)
+
+Knowing the solution to the [rr_lr.html unregularized problem], a natural first attempt at [\#eq-reg_rr_lr (1)] is to reuse the same recipe. Let $\hat{\Theta}$ solve the unconstrained ridge problem, take the thin SVD $X\hat{\Theta}=U\Sigma V^T$, and return $\hat{\Theta}V_{:r}V_{:r}^T$, where $V_{:r}$ contains the first $r$ columns of $V$. This is /not/ a solution to [\#eq-reg_rr_lr (1)], but it is close.
+
+To find the real solution, first define
+
+\(
+\tilde{X}:=\begin{bmatrix}X \\ \sqrt{\lambda} I\end{bmatrix}, \quad \tilde{Y}:=\begin{bmatrix}Y \\ \mathbf{0}\end{bmatrix},
+\)
+
+where $I$ is the $p\times p$ identity matrix and $\mathbf{0}$ is the $p\times q$ matrix of zeros. We can now rewrite [\#eq-reg_rr_lr (1)] as
+
+{{<span id="eq-tall_rr_lr"></span>}}
+\(
+\begin{align}
+\min_{\Theta}. \quad & \left\|\tilde{Y} - \tilde{X}\Theta\right\|_F^2 \\
+\text{s.t.} \quad & \text{rank}(\Theta) \leq r.\nonumber
+\end{align}
+\)
+
+Problem [\#eq-tall_rr_lr (2)] carries no ridge term. It is exactly the reduced-rank least squares problem from before, with $\tilde{X}$ and $\tilde{Y}$ in place of $X$ and $Y$, and its unconstrained solution is $\hat{\Theta}$. Take the thin SVD $\tilde{X}\hat{\Theta}=\tilde{U}\tilde{\Sigma} \tilde{V}^T$. The two-step solution gives $\hat{\Theta}\tilde{V}_{:r}\tilde{V}_{:r}^T$ as a solution to [\#eq-tall_rr_lr (2)], and therefore to [\#eq-reg_rr_lr (1)].
+
+The naive and the correct solutions differ only in which matrix we decompose, $X\hat{\Theta}$ in the first case and $\tilde{X}\hat{\Theta}$ in the second.
+
+== What does reduced-rank ridge achieve?
+In this problem, $\lambda$ does double duty. First, the ordinary ridge fit shrinks $\hat{\Theta}$ and keeps it well behaved when $X$ is ill-conditioned. Second, $\lambda$ changes /which/ rank-$r$ subspace we keep. The matrix $\tilde{X}\hat{\Theta}$ stacks $\sqrt{\lambda}\hat{\Theta}$ beneath $X\hat{\Theta}$, so the coefficients enter the decomposition directly rather than only through $X$.
+
+To see how, note that the right singular vectors of $\tilde{X}\hat{\Theta}$ are the eigenvectors of
+
+\(
+\hat{\Theta}^T\tilde{X}^T\tilde{X}\hat{\Theta} = \hat{\Theta}^T\left(X^TX + \lambda I\right)\hat{\Theta} = \left(X\hat{\Theta}\right)^T\left(X\hat{\Theta}\right) + \lambda\hat{\Theta}^T\hat{\Theta}.
+\)
+
+The naive recipe keeps the leading eigenvectors of the first term alone. The correction $\lambda\hat{\Theta}^T\hat{\Theta}$ rewards directions in which the coefficients themselves are large, whether or not $X$ excites them.
+
+There is a tidier way to write the same matrix. The ridge normal equations say that
+
+\(
+X^T(Y - X\hat{\Theta}) = \lambda\hat{\Theta}.
+\)
+
+Unlike in least squares, the residual is /not/ orthogonal to the column space of $X$. Its overlap is exactly $\lambda\hat{\Theta}$. Substituting and writing $\hat{Y} = X\hat{\Theta}$ for the fitted values gives
+
+\(
+\hat{\Theta}^T\left(X^TX+\lambda I\right)\hat{\Theta} = \hat{\Theta}^TX^TY = \hat{Y}^TY.
+\)
+
+Reduced-rank ridge therefore keeps the $r$ directions in target space that account for the most cross-covariance between the fitted values and the targets. The naive recipe instead keeps the directions that account for the most variance in the fitted values. The two criteria agree when $\lambda = 0$, since $\hat{Y}^TY = \hat{Y}^T\hat{Y} + \hat{Y}^T\left(Y - \hat{Y}\right) = \hat{Y}^T\hat{Y}$ by the orthogonality argument from the previous note. Regularization pulls them apart.
+
+How much does this move the answer? If $X^TX = cI$, then $\hat{\Theta}^T(X^TX+\lambda I)\hat{\Theta} = (c+\lambda)\hat{\Theta}^T\hat{\Theta}$. This has the same eigenvectors as $\hat{\Theta}^TX^TX\hat{\Theta}$, so the naive and correct recipes agree exactly. With orthogonal features of equal norm, $\lambda$ only shrinks. Away from that case, the correction has spectral norm at most $\lambda\sigma_1(\hat{\Theta})^2$. A Davis–Kahan bound says the retained subspace can rotate appreciably only when this is comparable to the gap between the $r$th and $(r+1)$th eigenvalues of $\hat{Y}^T\hat{Y}$.
+
+This estimator is not new. [https://onlinelibrary.wiley.com/doi/abs/10.1002/sam.10138 Mukherjee and Zhu (2011)] derive it from the same augmented data. In extending the estimator to kernels, they write the projection in terms of the eigenvectors of $Y^TX(X^TX+\lambda I)^{-1}X^TY$, which is the matrix $\hat{Y}^TY$ above. They also find empirically that the ridge penalty and rank constraint help each other most when the predictors are collinear. That is where the eigenvector calculation says the two effects of $\lambda$ interact.
+
+== Nuclear norm regularization
+Ridge is not the only way to regularize this problem, and a hard rank constraint is not the only way to ask for a low-rank fit. The rank of $\Theta$ is the number of its nonzero singular values, so the constraint in [\#eq-reg_rr_lr (1)] is a sparsity constraint on the spectrum. The usual convex substitute for a sparsity constraint is an $\ell_1$ penalty. Applied to the singular values, this becomes the nuclear norm $\|\Theta\|_* = \sum_i \sigma_i(\Theta)$ and gives the problem
+
+\(
+\min_{\Theta}. \quad \|Y - X\Theta\|_F^2 + \mu\|\Theta\|_*,
+\)
+
+and putting the ridge term back gives a matrix analogue of the elastic net,
+
+\(
+\min_{\Theta}. \quad \|Y - X\Theta\|_F^2 + \lambda\|\Theta\|_F^2 + \mu\|\Theta\|_*.
+\)
+
+Since $\|\Theta\|_F^2 = \sum_i \sigma_i(\Theta)^2$, both penalties act on the spectrum and the analogy to the vector case is exact. The Frobenius term is ridge on the singular values and shrinks the spectrum smoothly. The nuclear term is lasso on the singular values and sets the small ones to zero. The nuclear norm is a soft rank constraint in the same sense that the lasso is a soft sparsity constraint. It also means that we need not choose $r$ in advance because $\mu$ determines the rank. Nuclear-norm-penalized multivariate regression goes back to [https://academic.oup.com/jrsssb/article/69/3/329/7109373 Yuan, Ekici, Lu, and Monteiro (2007)], who proposed it for factor estimation and selection.
+
+Both problems are convex, so we no longer need a special argument for a non-convex constraint. What we give up is the nearly closed form. These problems are still straightforward to solve. The proximal operator of the nuclear norm soft thresholds the singular values. For a matrix $Z$ with thin SVD $U\Sigma V^T$,
+
+\(
+\mathrm{prox}_{t\mu\|\cdot\|_*}(Z) = U\left(\Sigma - t\mu I\right)_{+}V^T.
+\)
+
+Proximal gradient descent solves either problem by alternating a least squares gradient step with one of these thresholded SVDs. The ridge term needs no separate handling because stacking the data as before turns the elastic net problem into a pure nuclear norm problem in $\tilde{X}$ and $\tilde{Y}$.
+
+An SVD per iteration sounds expensive next to the single SVD used by reduced-rank ridge. In practice, the later SVDs can be much cheaper than the first. Consecutive iterates are close, so the singular vectors from one iteration provide good starting points for the next. We also do not need the full decomposition. Only singular values above $t\mu$ survive the threshold, and the rank of the iterates tends to settle early. It is enough to compute a few more singular triplets than the current rank and check that the smallest computed value falls below the threshold. The same warm starts help when computing a path of solutions over $\mu$, which must usually be tuned. [https://hastie.su.domains/Papers/mazumder10a.pdf Mazumder, Hastie, and Tibshirani (2010)] describe this machinery for matrix completion.
+
+The two approaches also respond differently to a change in the loss. Suppose we weight the residuals entry by entry, replacing $\|Y - X\Theta\|_F^2$ with $\|W\odot(Y - X\Theta)\|_F^2$ for a matrix of weights $W$. The elastic net changes little. A weighted quadratic is still convex, and proximal gradient descent runs with a different gradient step. The rank-constrained problem falls apart. In the special case $X = I$, completing the square entry by entry gives
+
+\(
+\left\|W\odot\left(Y-\Theta\right)\right\|_F^2 + \lambda\|\Theta\|_F^2 = \left\|\tilde{W}\odot\left(\tilde{Y}-\Theta\right)\right\|_F^2 + c,
+\)
+
+where the squares and division are entrywise, $\tilde{W}^2 = W^2 + \lambda$, $\tilde{Y} = W^2\odot Y/\left(W^2+\lambda\right)$, and $c$ does not depend on $\Theta$. The ridge term has been absorbed into strictly positive weights. What remains under the rank constraint is weighted low-rank approximation, which [https://arxiv.org/abs/1012.0197 Gillis and Glineur (2011)] show is NP-hard even for rank one with strictly positive weights. Stacking cannot rescue us because its argument relies on the plain Frobenius norm. The closed form is much more brittle than the convex relaxation.
+
+== Nuclear norm plus a rank constraint
+With both a soft rank penalty and a hard rank constraint on hand, it is natural to ask what happens if we impose them together,
+
+{{<span id="eq-nuc_rr"></span>}}
+\(
+\begin{align}
+\min_{\Theta}. \quad & \|Y - X\Theta\|_F^2 + \mu\|\Theta\|_* \\
+\text{s.t.} \quad & \text{rank}(\Theta) \leq r.\nonumber
+\end{align}
+\)
+
+I do not know of an efficient algorithm that solves problem [\#eq-nuc_rr (3)] globally, and there is no closed form. We are back to a non-convex problem, and this time nothing rescues it.
+
+We can still write down a reasonable heuristic. The rank constraint and nuclear norm are both unitarily invariant. Their joint proximal operator uses a single SVD: truncate at rank $r$, then soft threshold what remains. For a matrix $Z$ with thin SVD $U\Sigma V^T$, that operator is
+
+\(
+U_{:r}\left(\Sigma_{:r} - t\mu I\right)_{+}V_{:r}^T.
+\)
+
+Proximal gradient descent with this step costs no more per iteration than the elastic net. Warm-started from the reduced-rank ridge solution, it behaves sensibly. What we lose is the guarantee. The iterates settle at a stationary point, with no assurance that it is global.
+
+The two-step argument for ridge does not apply here. The orthogonality decomposition still works because it involves only the least squares term. It leaves us minimizing $\|X\hat{\Theta} - X\Theta\|_F^2 + \mu\|\Theta\|_*$ under the rank constraint. The relaxation is what fails. We replaced $X\Theta$ with a free matrix $M$, which requires every term to be a function of $M$. The nuclear norm of $\Theta$ is not. Ridge works because a squared Frobenius penalty is a sum of squares. Stacking folds it into the data before we relax anything. The nuclear norm has no such form.
+
+The problem becomes tractable again if we penalize $\mu\|X\Theta\|_*$ instead. Every term is then a function of $M$, so both steps go through. The solution has the form $\hat{\Theta}V_{:r}DV_{:r}^T$, where a diagonal $D$ applies soft thresholding rather than leaving the retained singular values intact.
+
+I do not know of a reason to prefer problem [\#eq-nuc_rr (3)] to either of its neighbors. The rank constraint has already fixed the rank, so the nuclear norm cannot do the job it is best at. It can only shrink the $r$ singular values we kept. Ridge does that without costing us the closed form. If we know $r$, reduced-rank ridge solves the problem exactly. If we do not, the matrix elastic net is convex and chooses the rank. Problem [\#eq-nuc_rr (3)] gives up the closed form of the first and the convexity of the second without an apparent benefit.
