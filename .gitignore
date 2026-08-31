@@ -7,3 +7,8 @@ build/
 node_modules
 package-lock.json
 katexcache
+
+manual/
+AGENTS.md
+CLAUDE.md
+.agents/*
