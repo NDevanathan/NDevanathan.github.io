@@ -1,0 +1,238 @@
+# jemdoc: menu{MENU}{}{../}
+= Gaussian elimination, LU, and LDL
+
+9\/12\/2026
+
+For some projects I am working on, I wanted to understand sparse factorizations better, but first I needed to get the dense case straight. This is the first of three notes collecting the material I found most useful on the topic.
+
+None of the material is new, and all of it is covered more fully in [https://doi.org/10.1137/1.9780898719574 Trefethen and Bau (1997)] and [https://www.hfsbooks.com/books/matrix-computations-4th-edition-golub-van-loan/ Golub and Van Loan (2013)]. The error analysis I quote without proof is developed carefully in [https://doi.org/10.1137/1.9780898718027 Higham (2002)].
+
+== Gaussian elimination is a factorization
+Suppose $A\in\mathbb{R}^{n\times n}$. One step of Gaussian elimination uses the pivot $a_{11}$ to clear the first column below the diagonal. Partition
+
+\(
+A = \begin{bmatrix} \alpha & r^T \\ c & B \end{bmatrix}, \qquad \alpha \neq 0.
+\)
+
+With $m=c/\alpha$, the elimination step is
+
+\(
+\begin{bmatrix}1&0\\-m&I\end{bmatrix}
+\begin{bmatrix}\alpha&r^T\\c&B\end{bmatrix}
+=
+\begin{bmatrix}\alpha&r^T\\0&B-mr^T\end{bmatrix}.
+\)
+
+The trailing matrix $B-mr^T$ is the Schur complement of the pivot. Write $E_1$ for the unit lower triangular matrix that produced it. Repeating the step on each successive Schur complement produces $E_2,\dots,E_{n-1}$ and an upper triangular $U$ with $E_{n-1}\cdots E_1A=U$, so
+
+\(
+A=E_1^{-1}\cdots E_{n-1}^{-1}U=LU.
+\)
+
+Each inverse elimination matrix is unit lower triangular, and so is their product $L$. Its subdiagonal entries are exactly the multipliers used along the way. LU is therefore not a construction layered on top of Gaussian elimination. It is a record of the elimination.
+
+Once the factorization is in hand, solving $Ax=b$ is two triangular solves,
+
+\(
+Ly=b, \qquad Ux=y.
+\)
+
+The factorization costs $2n^3/3+O(n^2)$ flops for a dense matrix, and each solve costs $O(n^2)$. This asymmetry is the reason to keep the factors and reuse them rather than form $A^{-1}$.
+
+Existence is an algebraic condition. If every leading principal submatrix of order less than $n$ is nonsingular, then $A$ has an LU factorization with unit lower triangular $L$, and that factorization is unique when $A$ is nonsingular. Nothing in the condition is numerical. A pivot can be nonzero and still be small enough to produce large multipliers and a poor factorization in floating point.
+
+== Pivoting bounds the multipliers, not the growth
+Dense LU normally uses partial pivoting. Step $k$ selects the largest-magnitude entry of column $k$ at or below the diagonal, exchanges its row with row $k$, and only then eliminates. The search costs $n-k$ comparisons, or $O(n^2)$ over the whole factorization.
+
+The resulting factorization has the form
+
+\(
+PA=LU,
+\)
+
+where $P$ collects the row exchanges. Because the pivot has maximal magnitude in its column, every multiplier satisfies $|l_{ik}|\leq 1$. This says nothing about the entries created in $U$. Those are measured separately. Write $a_{ij}^{(k)}$ for the entries present at the start of step $k$, so that $a_{ij}^{(1)}=a_{ij}$. The growth factor is
+
+\(
+\rho = \frac{\max_{i,j,k}\left|a_{ij}^{(k)}\right|}{\max_{i,j}|a_{ij}|}.
+\)
+
+[https://doi.org/10.1145/321075.321076 Wilkinson (1961)] showed that partial pivoting admits $\rho\leq 2^{n-1}$, and the bound is attained. Nor is exponential growth only a textbook artifact. [https://doi.org/10.1137/0914013 Wright (1993)] collects problems from applications on which partial pivoting fails. Growth is nonetheless modest in many practical problems, and [https://doi.org/10.1137/0611023 Trefethen and Schreiber (1990)] give a statistical account of why.
+
+A factorization algorithm is backward stable if its computed factors exactly factor a nearby matrix, with relative perturbation of order unit roundoff up to dimension-dependent constants. The standard backward-error statement keeps the two effects separate. The computed factors satisfy
+
+\(
+PA+\Delta A=\hat{L}\hat{U}, \qquad |\Delta A|\lesssim u\,|\hat{L}|\,|\hat{U}|,
+\)
+
+where $u$ is unit roundoff, the absolute values and inequality are entrywise, and $\lesssim$ hides dimension-dependent constants. The product $|\hat{L}|\,|\hat{U}|$ is ordinary matrix multiplication. Partial pivoting controls $\hat{L}$. Element growth controls $\hat{U}$. LU with partial pivoting is therefore backward stable when growth is moderate. It is not unconditionally backward stable in the strong sense that Householder QR is.
+
+To see how the row exchanges collect into $P$, return to the individual steps. Each contributes a permutation and an elimination. Let $P_k$ be the transposition applied at step $k$ and $E_k$ the elimination matrix that follows it. The reduction to upper triangular form reads
+
+\(
+E_{n-1}P_{n-1}\cdots E_2P_2E_1P_1A=U.
+\)
+
+This is not yet in the form $PA=LU$, because the permutations are interleaved with the eliminations. They can be pulled out to the right. Write $E_j=I-m_je_j^T$, where $e_j$ is the $j$th standard basis vector and $m_j$ holds the multipliers of step $j$, with nonzeros only below entry $j$. If $k>j$, then $P_k$ exchanges two rows whose indices both exceed $j$. It therefore fixes $e_j$ and only reorders the entries of $m_j$:
+
+\(
+P_kE_jP_k = I-\left(P_km_j\right)e_j^T.
+\)
+
+The conjugate is another elimination matrix in the same column, holding the same multipliers in a different order. Applying this repeatedly walks each transposition to the right, past every elimination matrix standing between it and $A$. Writing $\tilde{E}_j$ for $E_j$ conjugated by all the transpositions that follow it,
+
+\(
+\tilde{E}_{n-1}\cdots\tilde{E}_1P_{n-1}\cdots P_1A=U,
+\)
+
+so with $P=P_{n-1}\cdots P_1$ and $L=\tilde{E}_1^{-1}\cdots\tilde{E}_{n-1}^{-1}$ we recover the familiar
+
+\(
+PA=LU.
+\)
+
+Nothing about the elimination changed. The exchanges were chosen one step at a time, during the factorization, and only afterwards collected into a single permutation applied to $A$ up front. This is also why $L$ can be built in place. Each $\tilde{E}_j$ carries the multipliers of step $j$ permuted by the exchanges that came later. That is exactly what an implementation does when it applies each row swap to the multipliers already stored.
+
+Solving $Ax=b$ now permutes the right-hand side first, so the triangular solves become $Ly=Pb$ and $Ux=y$.
+
+Complete pivoting trades a more expensive search for stronger growth control. It searches the entire trailing matrix and applies both row and column permutations. Its growth bound is subexponential, but the search costs $O(n^3)$ comparisons, the same order as the arithmetic itself.
+
+Rook pivoting alternates row and column searches until a candidate is maximal in magnitude in both its active row and its active column. It buys growth control close to complete pivoting at a search cost usually closer to partial pivoting, as [https://doi.org/10.1016/S0377-0427%2897%2900154-4 Foster (1997)] quantifies.
+
+Which of these strategies is affordable for a sparse matrix is a separate question, because every exchange also changes the structure of the factors. I take that up in [pivoting_sparsity.html the next note].
+
+== Symmetry turns LU into LDL
+Now suppose $A=A^T$ and elimination proceeds without exchanges. Each successive Schur complement remains symmetric. In the partition above $r=c$, so the Schur complement is
+
+\(
+B-mr^T = B-\frac{cc^T}{\alpha},
+\)
+
+which is again symmetric. The elimination step can therefore be written with transposed factors on either side:
+
+\(
+A=
+\begin{bmatrix}1&0\\c/\alpha&I\end{bmatrix}
+\begin{bmatrix}\alpha&0\\0&B-cc^T/\alpha\end{bmatrix}
+\begin{bmatrix}1&c^T/\alpha\\0&I\end{bmatrix}.
+\)
+
+Repeating this identity on the Schur complement and recording the scalar pivots in $D$ gives
+
+\(
+A=LDL^T,
+\)
+
+with $L$ unit lower triangular and $D$ diagonal. This is Gaussian elimination with the symmetry left in. It stores one triangular factor instead of two and costs $n^3/3+O(n^2)$ flops, roughly half of general LU.
+
+Written column by column, the factorization is a sum of rank-one terms. If $l_k$ denotes the $k$th column of $L$, so that $l_{kk}=1$ and $m_k$ sits below it, then
+
+\(
+A=\sum_{k=1}^{n} d_k\, l_kl_k^T.
+\)
+
+Each elimination step removes one term. The terms that remain are supported on the trailing block, where they sum to the Schur complement. This is the right-looking view of the algorithm, and it is the one to hold onto for sparsity. The pattern of $l_k$ decides which entries of the trailing matrix a single pivot can reach, and therefore how many new nonzeros, or fill, it creates.
+
+For a symmetric positive definite matrix, every pivot is positive and no pivoting is required. The Schur complement identity proves it in one line. If
+
+\(
+A=\begin{bmatrix}\alpha&c^T\\c&B\end{bmatrix}\succ 0,
+\)
+
+then $\alpha>0$ and, for every nonzero $y$,
+
+\(
+y^T\left(B-\frac{cc^T}{\alpha}\right)y
+=
+\begin{bmatrix}-c^Ty/\alpha\\y\end{bmatrix}^T
+A
+\begin{bmatrix}-c^Ty/\alpha\\y\end{bmatrix}>0.
+\)
+
+The Schur complement is again positive definite, so the argument repeats on it.
+
+The scalar LDL recurrence is left-looking. It builds column $k$ from the columns already finished rather than updating the trailing block as each pivot is eliminated:
+
+\(
+\begin{align*}
+d_k &= a_{kk}-\sum_{j<k}l_{kj}^2d_j,\\
+l_{ik} &= \frac{1}{d_k}\left(a_{ik}-\sum_{j<k}l_{ij}d_jl_{kj}\right), \qquad i>k.
+\end{align*}
+\)
+
+LDL avoids square roots and keeps the signs of the pivots explicit. The inertia of a symmetric matrix is the triple of counts of its positive, negative, and zero eigenvalues. In exact arithmetic, and whenever the unpivoted factorization exists, the signs of the pivots give the inertia of $A$ by Sylvester's law.
+
+Symmetry alone does not make unpivoted elimination safe. A nonsingular symmetric indefinite matrix can have a zero or tiny diagonal pivot, and there is no guarantee that any diagonal entry is usable. The smallest example is
+
+\(
+\begin{bmatrix}0&1\\1&0\end{bmatrix},
+\)
+
+which is symmetric and nonsingular with no nonzero diagonal entry at all. The remedy is to widen what counts as a pivot, and this matrix is its own $2\times2$ pivot. A stable factorization then has the form
+
+\(
+PAP^T=LDL^T,
+\)
+
+where $D$ is block diagonal with $1\times1$ and $2\times2$ blocks, following [https://doi.org/10.1137/0708060 Bunch and Parlett (1971)].
+
+Choosing these blocks involves the same search-cost tradeoff as LU pivoting. The [https://doi.org/10.1090/S0025-5718-1977-0428694-0 Bunch--Kaufman rule] uses at most two column searches per step and bounds element growth, but not the entries of $L$. Bounded Bunch--Kaufman and symmetric rook pivoting search further to control the multipliers as well, as analyzed by [https://doi.org/10.1137/S0895479896296921 Ashcraft, Grimes, and Lewis (1998)].
+
+The permutation here acts on both sides. Unlike LU row pivoting, a symmetric factorization may only reorder rows and columns together. That constraint is what will make symmetric pivoting hard to reconcile with an ordering chosen for sparsity.
+
+Solving $Ax=b$ from these factors mirrors the LU case with one step inserted in the middle:
+
+\(
+Lw=Pb, \qquad Dz=w, \qquad L^Tv=z, \qquad x=P^Tv.
+\)
+
+The middle solve is diagonal, or block diagonal once $2\times2$ pivots appear, and costs $O(n)$ either way.
+
+== Cholesky is scaled LDL
+For $A\succ0$ every $d_k$ is positive, so the pivots can be split as $D=D^{1/2}D^{1/2}$ and absorbed into the triangular factors:
+
+\(
+A=LDL^T=(LD^{1/2})(LD^{1/2})^T=GG^T,
+\)
+
+where $G=LD^{1/2}$ is lower triangular with positive diagonal $g_{kk}=\sqrt{d_k}$. This is the Cholesky factorization, and the positive diagonal makes it unique. I name the factor $G$ following Golub and Van Loan, since $L$ already names the unit lower triangular factor and $R$ would suggest an upper triangular one.
+
+Cholesky costs the same $n^3/3+O(n^2)$ flops as LDL, plus $n$ square roots. It is backward stable without pivoting provided the computation completes: the computed factor satisfies
+
+\(
+A+\Delta A=\hat{G}\hat{G}^T, \qquad |\Delta A|\lesssim u\,|\hat{G}|\,|\hat{G}|^T,
+\)
+
+up to dimension-dependent constants. Positive definiteness removes the stability reason to pivot. Permutations remain essential in sparse problems, but only to reduce fill.
+
+The distinction appears when a pivot is nonpositive. A nonpositive $d_k$ proves in exact arithmetic that $A$ is not positive definite. LDL records a negative pivot and continues. Cholesky meets it as a negative argument to a square root and stops. A zero pivot before the last column makes the scalar LDL recurrence break down, since it divides by $d_k$. A zero final pivot requires no division and does not prevent an LDL factorization, though the matrix is singular.
+
+In floating point, even an exactly SPD matrix sufficiently close to singularity can produce a nonpositive computed pivot and cause Cholesky to stop. A small negative value may therefore reflect roundoff, or an input that is only numerically semidefinite. Silently clipping it changes the problem, so a regularization or diagonal shift belongs in the model rather than in a solver.
+
+The normal equations $M^TMx=M^Tb$ deserve the same caution. When $M$ has full column rank, $M^TM$ is SPD, but its 2-norm condition number is $\kappa_2(M^TM)=\kappa_2(M)^2$. Cholesky is stable only for the matrix it is handed, not for the one that matrix came from. [https://doi.org/10.1137/1.9781611971484 Björck (1996)] is the standard account.
+
+The difference that matters for what follows is that the square root demands positivity and LDL does not. Unpivoted LDL asks only that the leading principal submatrices of order less than $n$ be nonsingular. It exposes the inertia, and with a symmetric permutation and $2\times2$ blocks it covers every nonsingular symmetric matrix. Cholesky is the special case in which the pivots happen to be positive. That is why the rest of this series is written in terms of LDL.
+
+== Block elimination is the same identity
+The scalar formulas hide the form that high-performance implementations actually use. Partition an SPD matrix after a leading block:
+
+\(
+A=\begin{bmatrix}A_{11}&A_{21}^T\\A_{21}&A_{22}\end{bmatrix}.
+\)
+
+First factor $A_{11}=G_{11}G_{11}^T$, then solve $G_{21}G_{11}^T=A_{21}$, and finally factor the Schur complement
+
+\(
+S=A_{22}-G_{21}G_{21}^T.
+\)
+
+This is block Cholesky. It is the same step as before with a leading submatrix in place of a scalar pivot. For block LDL, first factor $A_{11}=L_{11}D_1L_{11}^T$, then solve for $L_{21}$ and form the Schur complement:
+
+\(
+L_{21}D_1L_{11}^T=A_{21}, \qquad S=A_{22}-L_{21}D_1L_{21}^T.
+\)
+
+Factoring $S$ completes the block LDL factorization. In both versions, most of the work is the matrix--matrix trailing update, which is why blocked dense implementations reach [https://doi.org/10.1145/77626.79170 level-3 BLAS] speed.
+
+Sparse multifrontal methods run on the same identity. There the leading block is a group of columns eliminated together, and the update is not applied to $A_{22}$ right away. It is held as a dense contribution block and assembled into a later frontal matrix, following [https://doi.org/10.1145/356044.356047 Duff and Reid (1983)] and the account in [https://doi.org/10.1137/1034004 Liu (1992)]. Block elimination is the reason a sparse factorization can spend most of its time inside dense kernels. I take this up in [sparse_ldl.html the third note].
+
+Left-looking, right-looking, and multifrontal algorithms differ mainly in when they assemble and apply Schur-complement updates. In exact arithmetic, for a fixed ordering, they produce the same factor. Their memory traffic and their access to dense kernels differ a great deal.
