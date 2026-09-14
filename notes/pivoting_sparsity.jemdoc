@@ -1,0 +1,131 @@
+# jemdoc: menu{MENU}{}{../}
+= Pivoting and sparsity
+
+9\/15\/2026
+
+The [direct_factorizations.html first note] ended with two different reasons to permute a matrix. A fill-reducing ordering chooses an elimination order from the nonzero pattern before the numerical factorization begins. Numerical pivoting chooses acceptable pivots from the values that appear during elimination. The first tries to make the factors cheaper. The second keeps them accurate.
+
+This conflict disappears for a symmetric positive definite matrix. Cholesky needs no stability pivoting, so the permutation can target fill alone. The conflict returns for a general symmetric indefinite matrix. A symbolic analysis can predict the work for its chosen order, but it cannot determine whether the corresponding pivots will be safe. This is the central difficulty in a sparse indefinite LDL factorization.
+
+== What symbolic factorization promises
+Let $A=A^T\in\mathbb{R}^{n\times n}$, and associate an undirected graph with its structural nonzero pattern. Vertex $i$ represents row and column $i$. An edge $(i,j)$ is present when $a_{ij}$ is structurally nonzero. The numerical value of that entry does not matter at this stage.
+
+Suppose we fix a symmetric permutation $P_s$ and perform scalar elimination in the order it specifies, with every scalar pivot nonzero. Eliminating a vertex joins all of its remaining neighbors into a clique. An edge added this way is fill. Repeating the operation produces a filled graph, and the later neighbors of vertex $k$ give the structural nonzeros below the diagonal in column $k$ of $L$.
+
+This graph calculation is the symbolic factorization. It predicts the factor pattern, storage, and much of the arithmetic without computing a Schur complement. These predictions are structural. An exact numerical cancellation may make a predicted entry zero, but an implementation cannot rely on that accident when allocating storage.
+
+The symbolic phase can also compare candidate orderings. A good ordering tries to keep the neighbor sets small, which reduces both fill and work. Finding the ordering with minimum fill is hard in general, so practical solvers use heuristics such as minimum degree and nested dissection. [https://doi.org/10.1137/1.9780898718881 Davis (2006)] gives a careful account of this separation between ordering, symbolic analysis, and numerical factorization.
+
+The promise is especially useful for a sequence of matrices with the same pattern. If the ordering and elimination decisions remain fixed, the ordering and symbolic factorization can be computed once and reused. Only the numerical factors need to be recomputed when the values change. Multiple right-hand sides require even less work: the same numerical factors can be reused without refactorization.
+
+There is an important condition hidden in this promise. The predicted pattern belongs to a fixed elimination order and fixed pivot blocks. If numerical stability changes either one, the symbolic plan no longer describes the factorization exactly.
+
+== The same pattern can demand a different pivot
+A four-vertex path gives a small example. Consider
+
+\(
+A(d)=
+\begin{bmatrix}
+d&1&0&0\\
+1&2&1&0\\
+0&1&2&1\\
+0&0&1&2
+\end{bmatrix}.
+\)
+
+For every nonzero $d$, the structural graph is the path $1-2-3-4$. Eliminating in the order $1,2,3,4$ creates no fill because each eliminated vertex has at most one remaining neighbor. The symbolic prediction is therefore the same for $d=1$ and $d=10^{-2}$.
+
+The numerical decisions are different. A common threshold test accepts the scalar pivot $a_{kk}$ only if
+
+\(
+|a_{kk}| \geq u\max_{i\neq k}|a_{ik}|,
+\)
+
+where $0<u<1$ is chosen by the solver. If the test passes, the multipliers in that pivot column have magnitude at most $1/u$. With $u=10^{-1}$, the planned first pivot is accepted for $A(1)$ and rejected for $A(10^{-2})$.
+
+Suppose the solver responds by exchanging vertices 1 and 2 and eliminating the second vertex of the path first. Its neighbors are 1 and 3, so the graph acquires the fill edge $(1,3)$. The exact Schur complement on vertices $1,3,4$ is
+
+\(
+\begin{bmatrix}
+-49/100&-1/2&0\\
+-1/2&3/2&1\\
+0&1&2
+\end{bmatrix}.
+\)
+
+The new entry $-1/2$ is precisely the fill predicted by eliminating vertex 2 first. Nothing about the input pattern changed. The numerical value of one diagonal entry changed the pivot order, and the new order changed the factor pattern.
+
+This example does not say that every stable alternative must add fill. The leading $2\times2$ block can instead serve as a block pivot. That choice avoids trailing off-diagonal fill here, but it still replaces two planned scalar pivots with one block pivot. The example says something more basic: the nonzero pattern alone cannot determine which numerical path a sparse indefinite factorization will take. A symbolic phase may predict the original scalar order, but the numerical phase must be allowed to depart from it.
+
+== Pivoting inside a sparse factorization
+Searching the whole active matrix after every rejected pivot would discard much of the benefit of symbolic analysis. Sparse solvers instead combine a global structural ordering with local numerical freedom. The multifrontal method makes this compromise clear.
+
+The symbolic ordering organizes the factorization into fronts. A front is a dense work array containing some variables ready for elimination together with variables that couple them to later work. Schur-complement updates from earlier fronts are assembled there. A variable is fully summed once every contribution to its row and column has arrived. Only then can its value be tested reliably as a pivot.
+
+Within the fully summed part of a front, an indefinite solver searches for acceptable $1\times1$ and $2\times2$ pivots. The tests are numerical, but the search is restricted to variables already brought together by the symbolic plan. This is much cheaper and more predictable than complete pivoting over the whole reduced matrix. It also means that an acceptable pivot elsewhere in the matrix may not yet be available.
+
+If a fully summed variable has no acceptable pivot in the current front, the solver can delay it. The variable and its assembled entries are passed to the parent front, where more candidates are available. This preserves the numerical safeguard, but the parent is now larger than symbolic analysis predicted. Several delayed pivots can meet in one ancestor, enlarge a dense frontal matrix, and increase work and storage far more than their count alone suggests. [https://doi.org/10.1145/356044.356047 Duff and Reid (1983)] introduced this strategy in the original multifrontal method.
+
+The threshold $u$ exposes the local tradeoff. A larger value rejects more pivots and gives tighter multiplier control, but it can cause more searches and delays. A smaller value accepts more of the symbolic order, but permits larger multipliers. Threshold pivoting therefore supplies a tunable numerical test, not a simultaneous global bound on fill and stability.
+
+Dense rook pivoting illustrates why stronger searches are difficult to import unchanged. It alternates column and row searches until the candidate is maximal in both. In dense LU this bounds the entries below the pivot in its column and those to its right in its row relative to the pivot. A sparse implementation must inspect distributed row and column structures, may leave the current front, and may invalidate more of the symbolic plan. Symmetric rook variants also have to choose $1\times1$ or $2\times2$ diagonal blocks. They can improve numerical behavior on difficult problems, but their search and data-movement costs are part of the method, not lower-order details.
+
+== Preprocessing moves the conflict
+Scaling and matching try to make the symbolic prediction numerically plausible before elimination starts. Diagonal scaling reduces disparities among rows and columns. Weighted matching seeks large entries that can serve as prospective pivots. For a symmetric problem, the preprocessing must preserve symmetry, and a large off-diagonal match naturally suggests a $2\times2$ block rather than an unsymmetric row permutation.
+
+The prospective $1\times1$ and $2\times2$ pivots can then constrain the fill-reducing ordering. This mixes numerical information into the symbolic phase instead of waiting for a failure during factorization. [https://doi.org/10.1137/04061043X Duff and Pralet (2005)] develop symmetric scaling, matching, and constrained orderings for this purpose.
+
+Preprocessing does not remove value dependence. Schur complements contain updated values that were not present in the input matrix, so a promising original entry can still become an unacceptable pivot later. Scaling and matching can reduce the number of surprises, but they do not guarantee that every pivot will be accepted. They also do not repair an ill-conditioned problem.
+
+== Dynamic and static responses
+A dynamic strategy keeps the numerical threshold and changes the factorization when the symbolic choice fails. It may exchange candidates within a front, use a $2\times2$ block, or delay a variable. The computed factors then belong to the original matrix, up to rounding error, but their structure and cost may exceed the symbolic estimate.
+
+Static pivoting makes the opposite choice. It follows the planned structure and perturbs a small or unacceptable pivot so elimination can continue. This makes the memory schedule predictable and communication easier, which is attractive in parallel solvers. The factors now represent a perturbed matrix by design. Iterative refinement may recover an accurate solution to the original system, but convergence is not automatic, and a perturbation can corrupt inertia information needed by an optimization algorithm. Mixed strategies first accept pivots under numerical tests, then weaken the test or perturb only after too many delays. [https://doi.org/10.1137/050629598 Duff and Pralet (2007)] analyze such combinations.
+
+The main devices can be summarized as follows.
+
+~~~
+{}{table}{pivot-tradeoffs}
+*Device* | *What it provides* | *What it does not provide* ||
+Fill-reducing ordering | A structural attempt to reduce factor nonzeros and work | Numerically acceptable pivots ||
+Threshold pivoting | A local bound on multipliers for accepted pivots | A global fill bound or small element growth in every case ||
+$1\times1$ and $2\times2$ blocks | A way around missing or unsafe scalar diagonal pivots while preserving symmetry | A pivot sequence known from the pattern alone ||
+Scaling and matching | Better prospective pivots before symbolic analysis | A guarantee that later Schur-complement pivots remain acceptable ||
+Delayed pivots | Fidelity to the numerical acceptance test | The predicted front sizes, work, or storage ||
+Static perturbation | A fixed structure and predictable execution | Factors of the unperturbed matrix or reliable inertia by itself ||
+Iterative refinement | A chance to recover small backward error using the computed factors | Convergence or small forward error for an ill-conditioned system
+~~~
+
+No row of the table dominates the others. A robust sparse solver is a collection of compromises among them. [https://doi.org/10.1145/992200.992202 MA57], for example, separates analysis from numerical factorization, uses symmetric scaling and frontal $1\times1$ or $2\times2$ pivoting, can restart if its storage estimate is exceeded, and provides refinement and error analysis.
+
+== What can actually be reused
+It is easy to say that the symbolic factorization is reusable when the pattern stays fixed. For an indefinite problem, it is better to say exactly which object is being reused.
+
+- The *ordering* can usually be reused. It remains a useful structural starting point even if later pivoting departs from it.
+- The *assembly tree and symbolic fronts* can often be reused as a scaffold. Delayed pivots may enlarge the fronts or require extra workspace during each numerical factorization.
+- The exact *factor pattern and storage offsets* are reusable only when the pivot sequence stays within the assumed structural envelope. A code can reserve extra space or restart when that envelope is exceeded.
+- The *numerical factors* are reusable for new right-hand sides, but not for a matrix whose numerical entries have changed.
+
+This distinction matters in parameter studies and optimization. A sequence of KKT matrices may keep the same block pattern while its diagonal values and inertia change at every iteration. Reusing the ordering can still save substantial work. Reusing an exact pivot sequence without tests is a stronger decision, and it amounts to accepting static pivoting or assuming numerical behavior that the pattern does not guarantee.
+
+For SPD matrices, the hierarchy collapses to the simpler case. A fixed pattern and permutation determine the symbolic Cholesky structure, apart from cancellation. The symbolic analysis, storage plan, and elimination dependencies can all be reused across new positive definite values. This is one reason the symbolic and numerical phases separate so cleanly in sparse Cholesky.
+
+== Diagnostics belong to the result
+A successful return code is not enough to evaluate the compromise. Useful structural diagnostics are the number of delayed pivots, the number and size of perturbations, the nonzeros in the factors, the largest front, peak memory, and any restart caused by underestimated storage. Comparing these quantities with the symbolic estimates shows how far numerical pivoting moved the computation from its plan.
+
+Numerical diagnostics answer a different question. Solvers should report scaling information, estimates of element growth or conditioning when available, and the behavior of iterative refinement. For a computed solution $\hat{x}$ with residual $r=b-A\hat{x}$, the componentwise relative backward error
+
+\(
+\eta = \max_i \frac{|r_i|}{\left(|A||\hat{x}|+|b|\right)_i}
+\)
+
+measures the smallest componentwise relative perturbation to $A$ and $b$ that explains the residual, with the usual conventions for a zero denominator. It is more informative than a normwise residual when rows and variables have very different scales. [https://doi.org/10.1137/0610013 Arioli, Demmel, and Duff (1989)] develop this measure for sparse systems and connect it to iterative refinement.
+
+A small backward error says that the computed solution solves a nearby problem. It does not say that the forward error is small when the original problem is ill-conditioned. Pivoting controls the factorization error; it cannot remove sensitivity already present in $A$.
+
+== The structural machinery comes next
+The conflict in this note is unavoidable because the symbolic phase sees a graph while the numerical phase sees Schur-complement values. Sparse indefinite solvers reconcile the two with local threshold tests, block pivots, delayed variables, preprocessing, perturbations, and refinement. Each device protects one part of the computation by giving up certainty somewhere else.
+
+The SPD case remains the cleanest place to introduce the structural machinery. Every Schur complement is positive definite, so there is no numerical reason to change the planned order. The permutation can target sparsity alone, and the symbolic prediction can be reused without accommodating value-dependent pivots.
+
+The [sparse_ldl.html next note] will use this clean case to develop elimination trees, approximate minimum degree, supernodes, and multifrontal factorization. It will then return to symmetric indefinite matrices and examine how numerical pivoting interacts with the same structures. It will also touch on QD-LDL for quasi-definite systems, an important indefinite class in which additional structure can restore a predetermined pivot sequence.
