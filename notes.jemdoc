@@ -1,0 +1,10 @@
+# jemdoc: menu{MENU}{notes.html}, showsource
+= Notes
+
+Notes as I write them.
+
+== 2026
+- [notes/pivoting_sparsity.html Pivoting and sparsity]
+- [notes/direct_factorizations.html Gaussian elimination, LU, and LDL]
+- [notes/reg_rr_lr.html Regularized reduced rank linear regression]
+- [notes/rr_lr.html Reduced rank linear regression]
