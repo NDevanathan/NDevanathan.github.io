@@ -12,3 +12,4 @@ manual/
 AGENTS.md
 CLAUDE.md
 .agents/*
+.plan/
