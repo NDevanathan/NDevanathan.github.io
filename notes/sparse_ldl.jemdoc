@@ -1,0 +1,104 @@
+# jemdoc: menu{MENU}{}{../}
+= Sparse LDL, AMD, and supernodes
+
+9\/27\/2026
+
+The [pivoting_sparsity.html previous note] separated a fill-reducing ordering, chosen from a matrix's pattern, from numerical pivoting, chosen from its values. For a symmetric positive definite (SPD) matrix, no stability pivoting is needed. The permutation can target sparsity alone, and symbolic analysis can predict the factor's storage before any arithmetic begins.
+
+The series uses LDL to describe the factorization. For the SPD structural analysis here, I will borrow Cholesky terminology. As in the [direct_factorizations.html first note], an SPD matrix has
+
+\(
+A=LDL^T=GG^T, \qquad G=LD^{1/2},
+\)
+
+where $L$ is unit lower triangular and $D$ has positive diagonal entries. Scaling the columns by $D^{1/2}$ does not change their nonzero pattern. The ordering, elimination tree, and supernodes are therefore the same for $L$ and $G$. At the end I will return to indefinite LDL and the limits of this structural prediction. [https://doi.org/10.1137/1.9780898718881 Davis (2006)] develops the sparse algorithms in more detail.
+
+== An ordering determines fill
+As in the previous note, eliminating a vertex joins its remaining neighbors into a clique. The added edges are fill and predict possible positions in the lower factor. The order of elimination decides which cliques form.
+
+Take the five-vertex star with center 1 and leaves 2 through 5. For definiteness, let its center diagonal be 5, its leaf diagonals be 2, and every center--leaf entry be 1:
+
+\(
+A=\begin{bmatrix}
+5&1&1&1&1\\
+1&2&0&0&0\\
+1&0&2&0&0\\
+1&0&0&2&0\\
+1&0&0&0&2
+\end{bmatrix}.
+\)
+
+This matrix is SPD by strict diagonal dominance with positive diagonal. In the displayed order, eliminating the center first creates all six edges among the leaves. The remaining factor is structurally dense. If the leaves are eliminated first, each has just one remaining neighbor, the center; eliminating them creates no fill. The two orders act on the same values and both are numerically valid, but they produce very different work.
+
+Let $c_k$ count the diagonal and the predicted nonzeros below it in factor column $k$, after the chosen permutation. Center first gives column counts $(5,4,3,2,1)$; leaves first, in the order $(2,3,4,5,1)$, gives $(2,2,2,2,1)$. Thus the structural factor storage, $\sum_k c_k$, is 15 versus 9 entries. Scalar Cholesky work is proportional, up to lower-order terms, to $\sum_k c_k^2$: the two sums are 55 and 17. These are work proxies, not measured flop counts. In this example the predicted fill is nonzero, but a symbolic analysis in general allocates for possible entries even when special numerical values cancel them.
+
+== Choosing an order: minimum degree and AMD
+At any step, the degree of a remaining vertex is its number of remaining neighbors in the *current* elimination graph, including earlier fill. Minimum degree chooses a vertex of smallest current degree. On the star it starts with a leaf; a leaf-first order remains a minimum-degree choice throughout, though a tie near the end could put the center next to last. If a chosen vertex has degree $d$, eliminating it could introduce as many as $d(d-1)/2$ edges among its neighbors. Low degree is a useful local proxy for fill, not a guarantee of the best order for the full factorization. In particular, two vertices of equal degree may have very different numbers of missing edges among their neighbors. Finding a globally minimum-fill ordering is intractable in general.
+
+Maintaining the current graph literally can defeat the purpose of a cheap ordering: a pivot can create a large clique, and later degrees must account for overlapping cliques. Approximate minimum degree (AMD) stores the cliques implicitly in a *quotient graph*. An eliminated vertex becomes an element representing the neighbors it connected. An uneliminated vertex can be adjacent to other vertices and to several such elements; the union of their neighbor sets describes its current graph neighbors without storing every filled edge. Computing the exact size of that union repeatedly can still be expensive.
+
+AMD instead uses inexpensive upper bounds on the current external degrees to select pivots. The bounds may count overlapping neighbor sets more than once, so the selected vertex need not have the true minimum degree. Indistinguishable remaining vertices can be represented together as a supervariable and eliminated in a group. Absorbing an element whose neighbors are already covered by a newer element removes redundant bookkeeping. These devices explain the name: AMD is an ordering heuristic that approximates the degree search, not an approximate numerical factorization. [https://doi.org/10.1137/S0895479894278952 Amestoy, Davis, and Duff (1996)] give the algorithm and its degree bounds.
+
+An AMD implementation may also treat very dense vertices specially. Its principal output is a permutation, not the factor pattern or a guarantee about storage. The actual column counts for that permutation still have to be computed by symbolic analysis. A reasonable comparison of orderings uses those counts, predicted work, and ordering time rather than degree alone.
+
+Minimum-degree methods are not the only choice. Nested dissection finds a small separator, orders the separated parts first, and orders the separator last; the procedure repeats inside the parts. This exposes independent subproblems and can be especially effective for mesh-like graphs, as [https://doi.org/10.1137/0710032 George (1973)] showed for a regular finite-element mesh. The choice between AMD and a separator-based ordering depends on the graph and the cost one wants to reduce. Neither method asks whether a numerical pivot will be safe.
+
+== Predicting the factor: symbolic analysis and the elimination tree
+Fix an ordering $P_s$ and set $\widetilde A=P_sAP_s^T$. From here on, indices refer to $\widetilde A$, and its factorization is $\widetilde A=LDL^T$. In the filled graph for this order, the later neighbors of vertex $k$ give the predicted row indices below the diagonal in column $k$ of $L$. The counts $c_k$ from the star summarize this pattern.
+
+The elimination tree compresses the dependencies in that filled graph. Define the parent of column $k$ to be the smallest $i>k$ for which $l_{ik}$ is structurally present; a column with no such $i$ is a root. A disconnected graph gives a forest, also conventionally called an elimination tree. Every off-diagonal position $(i,k)$ in the predicted factor makes $i$ an ancestor of $k$, though it need not make $i$ its parent.
+
+The two star orders show the difference. With the center first, the factor is structurally dense and the tree is the chain $1\to2\to3\to4\to5$. With the leaves first, all four leaf columns have the center as their parent. They lie in separate branches that can be processed independently before their contributions meet at the center. A dense factor with a simple chain is not better merely because it offers a large contiguous block of work.
+
+The tree can be found without first constructing the whole filled graph. It also gives a way to find factor structure by *reach*. To form the structural pattern of row $k$ of $L$, start at each earlier neighbor $i<k$ of $k$ in $\widetilde A$ and walk from $i$ up the tree toward $k$. The visited earlier columns are the places from which row $k$ can receive contributions. In the center-first star, the original edge $(1,5)$ reaches row 5 along the whole chain, accounting for positions $(5,2)$, $(5,3)$, and $(5,4)$ that were absent from $A$. For the leaves-first order, each original leaf--center edge reaches the center directly.
+
+Symbolic methods use this relationship to compute column counts, factor storage, and the dependency tree, often without explicitly materializing every filled edge. For the fixed SPD order, the filled graph gives an exact structural envelope for $L$: space can be reserved before numerical factorization even if cancellations leave some predicted entries numerically zero. The tree identifies dependencies; together with the column patterns, it also shows which columns can be grouped for computation.
+
+== Grouping columns into supernodes
+Sparse scalar columns are expensive to process one at a time. Their row indices must be traversed, and each small update scatters values to irregular locations. After postordering the elimination tree, some adjacent columns can instead be grouped: each earlier column has an entry in every later row of the group, and all the columns have the same row pattern *below the entire group*. Their diagonal block is then dense and triangular. A maximal group with this pattern along a single-child chain in the tree is a fundamental supernode.
+
+The center-first star produces a dense factor: its columns can form one large fundamental supernode. The leaves-first star produces much less work, but its four leaves are separate children of the center and do not form that supernode. This is a useful warning: larger supernodes do not compensate for an ordering that creates excessive fill.
+
+A supernode stores its common row-index list once and its columns as a dense lower-trapezoidal panel, rather than as separately indexed sparse columns. In Cholesky, its dense diagonal block is factored into a triangular factor, and a triangular solve gives the rows below it. In LDL, forming those rows also requires scaling by the diagonal factor. Updates from the panel become matrix--matrix operations. The extra arithmetic of a dense kernel can be cheaper than many sparse gathers and scatters because it reuses data in cache.
+
+Strictly identical row patterns may produce panels too narrow for this advantage. Relaxed supernodes join nearby columns with slightly different patterns, storing and sometimes operating on extra zeros to expose larger dense kernels. There is a tradeoff between this overhead and the reduction in indexing and memory traffic. [https://doi.org/10.1137/1.9780898718881 Davis (2006)] describes how supernodes are found and used in sparse Cholesky.
+
+== Executing the factorization: supernodal and multifrontal methods
+Supernodes group columns for dense work; multifrontal methods assemble updates in a tree of fronts. These ideas can be combined rather than forming two successive stages. Both use the block identity from the [direct_factorizations.html first note]. A group of columns is eliminated together; factoring its leading block, solving for its off-diagonal block, and forming its Schur-complement update are the same operations as in block LDL or block Cholesky. The execution strategies differ in where they hold and apply that update.
+
+A left-looking supernodal method gathers updates from earlier panels when it reaches the next panel. A right-looking method applies a panel's update to later panels as soon as it has been factored. For a fixed order, both compute the same exact-arithmetic factor. They differ in when data are read and written, how pending updates are represented, and which dense operations can be grouped. Neither removes fill created by the ordering.
+
+A multifrontal method delays the scattering in a different way. At a front, it assembles original entries with contribution blocks received from child fronts. The variables whose required contributions have arrived are *fully summed*: their current entries are ready for elimination. If $J$ is the set eliminated there and $R$ contains the later variables in that front, partition the assembled frontal matrix as
+
+\(
+F=\begin{bmatrix}F_{JJ}&F_{RJ}^T\\F_{RJ}&F_{RR}\end{bmatrix}.
+\)
+
+Factoring $F_{JJ}=L_JD_JL_J^T$ and solving $L_{RJ}D_JL_J^T=F_{RJ}$ leave the contribution block
+
+\(
+C_R=F_{RR}-L_{RJ}D_JL_{RJ}^T.
+\)
+
+The front passes $C_R$ toward its parent for assembly with other contributions. It need not immediately update a global sparse trailing matrix. This is the block Schur complement of the first note, held until the variables in $R$ are ready for it. The tree of fronts, called the assembly tree, is obtained by grouping work along the elimination tree; sibling fronts may be processed independently before their contributions meet. [https://doi.org/10.1145/356044.356047 Duff and Reid (1983)] introduced the multifrontal method, and [https://doi.org/10.1137/1034004 Liu (1992)] explains its organization.
+
+Holding dense fronts and contribution blocks buys locality and parallel tasks, but it uses temporary memory. The largest front, the work within fronts, and the number of simultaneously live contribution blocks matter alongside the final factor nonzero count. The [pivoting_sparsity.html previous note] introduced fronts to explain why an indefinite solver can delay a pivot. In exact arithmetic every planned SPD pivot is positive, so no pivot-driven revision of the symbolic assembly schedule is needed. As the first note explains, finite-precision Cholesky can still fail for sufficiently near-singular SPD input.
+
+== Reuse and the indefinite boundary
+For new SPD matrices with the same structural pattern, a fixed $P_s$ gives the same structural Cholesky pattern and elimination tree. The ordering, symbolic counts, panel or front layout, and allocated factor storage can be reused; only the numerical factorization must be repeated. For new right-hand sides to the *same* matrix, even the numerical factors can be reused.
+
+For a general symmetric indefinite matrix, the fixed symbolic layout may fail. The factorization may need $1\times1$ or $2\times2$ pivot blocks, exchanges within a front, or delayed variables passed to an ancestor. These choices can change columns, front sizes, and memory requirements after symbolic analysis. The assembly tree can remain a useful scaffold, but its original storage estimate need not contain the actual computation. That was the numerical conflict in the previous note, now seen against the structural machinery that pivoting disrupts.
+
+There is a useful indefinite exception to *pivot existence*. A symmetric quasi-definite matrix has, up to a symmetric reordering, the form
+
+\(
+K=\begin{bmatrix}H&B^T\\B&-C\end{bmatrix}, \qquad H\succ0,\quad C\succ0.
+\)
+
+Choose any positive-block indices $I$ and negative-block indices $J$, and let $B_{JI}$ denote the selected rows and columns of $B$. The corresponding principal submatrix still has positive definite diagonal blocks $H_I$ and $C_J$. Eliminating $H_I$ leaves the negative definite Schur complement $-C_J-B_{JI}H_I^{-1}B_{JI}^T$; a submatrix containing only one block is also nonsingular. Thus every principal submatrix is nonsingular. Every symmetric permutation of $K$ consequently admits scalar, unpivoted $LDL^T$ in exact arithmetic. [https://doi.org/10.1137/0805005 Vanderbei (1995)] proves this strong factorability result.
+
+[https://github.com/osqp/qdldl QDLDL] puts this result to work in a sparse scalar LDL solver. For a chosen fixed order, its symbolic routine computes the elimination tree and factor-column counts from the pattern. The solver allocates space for the predicted columns of $L$ and then computes their values and the scalar diagonal $D$ without searching for $2\times2$ pivots or delaying variables. For a new quasi-definite matrix with the same pattern and order, the tree and counts can be reused while the numerical factors are recomputed. This is a column-oriented implementation, not the supernodal or multifrontal organization described above.
+
+Existence is not a numerical bound. For example, $K=\begin{bmatrix}\varepsilon&1\\1&-1\end{bmatrix}$ is quasi-definite for every $\varepsilon>0$, but eliminating its small positive diagonal first creates the multiplier $1/\varepsilon$. Swapping the two variables first avoids that large multiplier. QDLDL's fixed plan avoids exact zero pivots for quasi-definite inputs in exact arithmetic; it does not make every order equally stable. [https://doi.org/10.1137/S0895479893252623 Gill, Saunders, and Shinnerl (1996)] analyze conditions for stable factorization of these systems.
+
+The dividing line is now precise. SPD structure permits both a fixed symbolic plan and pivot-free numerical factorization. Quasi-definite structure permits scalar pivots under any symmetric order but still calls for numerical care. General symmetric indefiniteness may force the numerical phase to revise even the pivot sequence and factor pattern. AMD, elimination trees, supernodes, and fronts remain useful in all three settings; what changes is how much of the symbolic prediction the numerical factorization can keep.
