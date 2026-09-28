@@ -1,7 +1,7 @@
 # jemdoc: menu{MENU}{}{../}
 = Pivoting and sparsity
 
-9\/17\/2026
+9\/17\/2026; edited 9\/27\/2026
 
 The [direct_factorizations.html first note] ended with two different reasons to permute a matrix. A fill-reducing ordering chooses an elimination order from the nonzero pattern before the numerical factorization begins. Numerical pivoting chooses acceptable pivots from the values that appear during elimination. The first tries to make the factors cheaper. The second tries to keep the elimination numerically stable.
 
@@ -153,4 +153,4 @@ A small backward error says that the computed solution solves a nearby problem. 
 == The structural machinery comes next
 The symbolic phase sees a graph while the numerical phase sees Schur-complement values. Sparse indefinite solvers reconcile the two with threshold tests, block pivots, delayed variables, preprocessing, perturbations, and refinement. Each device protects one part of the computation by giving up certainty somewhere else.
 
-This note used fronts only to explain the numerical consequences of pivoting. The [sparse_ldl.html next note] will develop the structural machinery itself in the cleaner SPD setting: elimination trees, approximate minimum degree, supernodes, and multifrontal factorization. It will then return to indefinite matrices and QD-LDL to show how numerical pivoting and quasi-definite structure interact with the same machinery.
+This note used fronts only to explain the numerical consequences of pivoting. The [sparse_ldl.html next note] will develop the structural machinery itself in the cleaner SPD setting: elimination trees, approximate minimum degree, supernodes, and multifrontal factorization. It will then return to indefinite matrices and QDLDL to show how numerical pivoting and quasi-definite structure interact with the same machinery.
